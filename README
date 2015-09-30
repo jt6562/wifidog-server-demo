@@ -1,0 +1,56 @@
+实现了一个最简单的wifidog认证服务器，实现以下接口
+1、auth
+2、login
+3、portal
+4、ping
+
+依赖：
+nginx
+uwsgi
+mysql-server
+python
+
+安装：
+数据库authserver中包含两个表，userinfo和token，其中userinfo数据表保存用户信息，token数据表保存当前登陆用户的token和登陆时间信息
+authserver.sql是mysql导出的数据库示例
+数据库还原步骤：
+1、mysql -uroot -p，进入数据库
+2、create database authdatabase;，创建数据库
+3、exit，退出
+4、mysql -uroot -p authdatabase < authserver.sql，还原数据库内容到之前创建的数据库中
+
+本认证服务器使用nginx+uWSGI+web.py开发。nginx站点配置内容为：
+server {
+    listen       808;
+    server_name  localhost;
+
+    set $root [path-to-authserver-dir];
+    access_log  /var/log/nginx/auth.access.log;
+    error_log  /var/log/nginx/auth.error.log;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass  127.0.0.1:8088;
+    }
+
+    location /static {
+        alias $root/views;
+        access_log off;
+        break;
+    }
+}
+如需使用，请修改[path-to-authserver-dir]为具体的authserver路径
+
+wifidog配置
+修改ExternalInterface接口为lan口，openwrt一般配置为br-lan
+修改GatewayInterface接口为wan口，openwrt一般为eth0.2，这个需要查看/etc/config/network
+修改AuthServer配置
+AuthServer {
+    Hostname 192.168.2.2  #认证服务器ip, 改为真实的ip
+    SSLAvailable no
+    HTTPPort  808          #认证服务器端口,改为真实配置的端口
+    Path /wifidog/        #认证服务器url,这个路径和webpy的url路由相关
+}
+
+运行：
+uwsgi -s 127.0.0.1:8088 -w authserver
